@@ -1,7 +1,7 @@
 name: Windows RDP with Ngrok
 
 on:
-  workflow_dispatch: # Manual နှိပ်ပြီး Run ရန်
+  workflow_dispatch:
 
 jobs:
   build:
@@ -25,24 +25,40 @@ jobs:
       run: |
         choco install ngrok
 
-    # 4. Ngrok Authtoken ထည့်သွင်းခြင်း နှင့် Tunnel စတင်ခြင်း
-    - name: Start Ngrok & Display IP
+    # 4. Ngrok Authtoken ထည့်ပြီး Background တွင် Run ခြင်း
+    - name: Start Ngrok Tunnel
       run: |
         ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        Start-Process -FilePath "ngrok.exe" -ArgumentList "tcp 3389"
-        Start-Sleep -Seconds 6
-        
-        # Ngrok Local API မှတစ်ဆင့် RDP IP နှင့် Port ကို ဆွဲထုတ်၍ Log တွင် ပြသခြင်း
-        $tunnel = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
-        $ip = $tunnel.tunnels[0].public_url
-        
-        Write-Host "==============================================="
-        Write-Host " YOUR RDP IP:PORT IS => $ip"
-        Write-Host " Username: runneradmin"
-        Write-Host " Password: Password1234!"
-        Write-Host "==============================================="
+        Start-Process -FilePath "ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
+        Start-Sleep -Seconds 10
 
-    # 5. စက်မပိတ်သွားစေရန် ၆ နာရီကြာ စောင့်ဆိုင်းပေးထားခြင်း
+    # 5. RDP IP နှင့် Port ကို Log တွင် ပြသခြင်း
+    - name: Get RDP IP & Port
+      run: |
+        $retry = 0
+        $ip = $null
+        while ($retry -lt 10 -and -not $ip) {
+            try {
+                $tunnel = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -ErrorAction Stop
+                $ip = $tunnel.tunnels[0].public_url
+            } catch {
+                Start-Sleep -Seconds 3
+                $retry++
+            }
+        }
+
+        if ($ip) {
+            Write-Host "==============================================="
+            Write-Host " YOUR RDP IP:PORT IS => $ip"
+            Write-Host " Username: runneradmin"
+            Write-Host " Password: Password1234!"
+            Write-Host "==============================================="
+        } else {
+            Write-Host "Failed to retrieve Ngrok Tunnel URL."
+            exit 1
+        }
+
+    # 6. စက်မပိတ်သွားစေရန် ၆ နာရီကြာ စောင့်ဆိုင်းပေးထားခြင်း
     - name: Keep Alive (6 Hours)
       run: |
         Start-Sleep -Seconds 21600
