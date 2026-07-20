@@ -1,4 +1,4 @@
-name: Windows RDP Custom User
+name: Windows RDP Stable
 
 on:
   workflow_dispatch:
@@ -14,8 +14,6 @@ jobs:
         $ErrorActionPreference = 'SilentlyContinue'
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        
-        # runneradmin အစား နာမည်အသစ် 'myadmin' ကို သုံးခြင်း
         cmd.exe /c "net user myadmin Password1234! /add" 2>$null
         cmd.exe /c "net localgroup administrators myadmin /add" 2>$null
         exit 0
