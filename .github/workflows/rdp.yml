@@ -11,32 +11,27 @@ jobs:
     - name: Enable Windows RDP and Setup User
       shell: pwsh
       run: |
+        $ErrorActionPreference = 'SilentlyContinue'
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         
-        # User ရှိပြီးသားဖြစ်နေရင် Error မတက်အောင် Try-Catch သုံးခြင်း
-        try {
-            net user runneradmin "Password1234!" /add
-        } catch {
-            net user runneradmin "Password1234!"
-        }
-
-        # Admin group ထဲမှာ ရှိပြီးသားဆိုရင် Error မျက်ကွယ်ပြုရန်
-        try {
-            net localgroup administrators runneradmin /add
-        } catch {
-            Write-Host "Admin group already contains user, continuing..."
-        }
+        # Error လုံးဝ မတက်စေရန် လုံးဝ ဖုံးအိထားခြင်း
+        cmd.exe /c "net user runneradmin Password1234! /add" 2>$null
+        cmd.exe /c "net user runneradmin Password1234!" 2>$null
+        cmd.exe /c "net localgroup administrators runneradmin /add" 2>$null
+        exit 0
 
     - name: Download Playit.gg
       shell: pwsh
       run: |
+        $ErrorActionPreference = 'SilentlyContinue'
         $playitUrl = "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-amd64.exe"
         Invoke-WebRequest -Uri $playitUrl -OutFile "playit.exe"
 
     - name: Start Playit.gg
       shell: pwsh
       run: |
+        $ErrorActionPreference = 'SilentlyContinue'
         Start-Process -FilePath ".\playit.exe"
         Start-Sleep -Seconds 5
 
