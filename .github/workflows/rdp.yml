@@ -14,21 +14,21 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         net user runneradmin Password1234!
 
-    - name: Start TCP Tunnel (Serveo)
+    - name: Install Node.js & LocalTunnel
       run: |
-        # Serveo သုံးပြီး 3389 ကို TCP Port တိုက်ရိုက်ထုတ်ခြင်း (Account ဖွင့်စရာမလိုပါ)
-        Start-Job -ScriptBlock { ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net }
-        Start-Sleep -Seconds 10
-        
-        # ထွက်လာတဲ့ Host/Port ကို Log ထဲမှာ ဖမ်းယူပြသခြင်း
-        $job = Get-Job | Where-Object { $_.State -eq 'Running' }
-        Start-Sleep -Seconds 5
+        npm install -g localtunnel
+
+    - name: Start Tunnel & Get IP
+      run: |
+        # LocalTunnel ဖြင့် TCP 3389 ကို တိုက်ရိုက်ထုတ်ခြင်း
+        Start-Process -FilePath "lt" -ArgumentList "--port 3389" -RedirectStandardOutput "lt.log" -WindowStyle Hidden
+        Start-Sleep -Seconds 8
 
     - name: Show Connection Info
       run: |
-        # Serveo connection log ကို ဆွဲထုတ်ခြင်း
-        ssh -o StrictHostKeyChecking=no -R 0:localhost:3389 serveo.net 2>&1 | Select-String "Forwarding"
+        $url = Get-Content lt.log
         Write-Host "=========================================="
+        Write-Host " YOUR RDP URL/ADDRESS: $url"
         Write-Host " Username: runneradmin"
         Write-Host " Password: Password1234!"
         Write-Host "=========================================="
