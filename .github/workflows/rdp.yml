@@ -1,4 +1,4 @@
-name: Windows RDP Stable
+name: Windows RDP Custom User
 
 on:
   workflow_dispatch:
@@ -8,17 +8,16 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Enable Windows RDP and Setup User
+    - name: Enable Windows RDP and Setup Custom User
       shell: pwsh
       run: |
         $ErrorActionPreference = 'SilentlyContinue'
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         
-        # Error လုံးဝ မတက်စေရန် လုံးဝ ဖုံးအိထားခြင်း
-        cmd.exe /c "net user runneradmin Password1234! /add" 2>$null
-        cmd.exe /c "net user runneradmin Password1234!" 2>$null
-        cmd.exe /c "net localgroup administrators runneradmin /add" 2>$null
+        # runneradmin အစား နာမည်အသစ် 'myadmin' ကို သုံးခြင်း
+        cmd.exe /c "net user myadmin Password1234! /add" 2>$null
+        cmd.exe /c "net localgroup administrators myadmin /add" 2>$null
         exit 0
 
     - name: Download Playit.gg
@@ -34,6 +33,14 @@ jobs:
         $ErrorActionPreference = 'SilentlyContinue'
         Start-Process -FilePath ".\playit.exe"
         Start-Sleep -Seconds 5
+
+    - name: RDP Credentials Info
+      shell: pwsh
+      run: |
+        Write-Host "=========================================="
+        Write-Host " 👤 Username    : myadmin"
+        Write-Host " 🔑 Password    : Password1234!"
+        Write-Host "=========================================="
 
     - name: Keep Alive (6 Hours)
       shell: pwsh
