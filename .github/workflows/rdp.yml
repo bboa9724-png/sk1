@@ -1,4 +1,4 @@
-name: Windows RDP
+name: Windows RDP Fixed
 
 on:
   workflow_dispatch:
@@ -8,30 +8,43 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Enable RDP
+    - name: Enable Windows RDP
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        net user runneradmin Password1234!
+        net user runneradmin Password1234! /add
+        net localgroup administrators runneradmin /add
 
-    - name: Download & Start Ngrok
+    - name: Download & Extract Ngrok
       run: |
-        choco install ngrok
-        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        # Background မှာ TCP 3389 ကို တိုက်ရိုက်ထုတ်ပေးရန်
-        Start-Process -FilePath "ngrok.exe" -ArgumentList "tcp 3389"
-        Start-Sleep -Seconds 5
+        Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile "ngrok.zip"
+        Expand-Archive -Path "ngrok.zip" -DestinationPath "." -Force
 
-    - name: Get Ngrok TCP Address
+    - name: Start Ngrok TCP Tunnel
       run: |
-        # Ngrok API ကနေတစ်ဆင့် တိုက်ရိုက်ထွက်လာတဲ့ TCP IP:Port ကို ယူပြခြင်း
-        $response = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels"
-        $tcp_url = $response.tunnels[0].public_url
-        Write-Host "=========================================="
-        Write-Host " RDP ADDRESS: $tcp_url"
-        Write-Host " Username: runneradmin"
-        Write-Host " Password: Password1234!"
-        Write-Host "=========================================="
+        # Ngrok Auth Token ထည့်ခြင်း
+        .\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        
+        # Background မှာ 3389 ကို TCP ဖြင့် ဖွင့်ခြင်း
+        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 6
 
-    - name: Keep Alive
+    - name: Get RDP Connection Address
+      run: |
+        # Ngrok API ကနေတစ်ဆင့် TCP Address ကို တိုက်ရိုက်ဆွဲထုတ်ပြခြင်း
+        try {
+            $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
+            $tcp_url = $response.tunnels | Where-Object { $_.proto -eq "tcp" } | Select-Object -ExpandProperty public_url
+            
+            Write-Host "=========================================="
+            Write-Host " RDP ADDRESS : $tcp_url"
+            Write-Host " Username    : runneradmin"
+            Write-Host " Password    : Password1234!"
+            Write-Host "=========================================="
+        } catch {
+            Write-Host "API failed, please check if Ngrok started properly."
+            exit 1
+        }
+
+    - name: Keep Alive (6 Hours)
       run: Start-Sleep -Seconds 21600
