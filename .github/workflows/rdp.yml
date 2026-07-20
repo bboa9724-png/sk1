@@ -1,4 +1,4 @@
-name: Windows RDP Fixed
+name: Windows RDP Auto
 
 on:
   workflow_dispatch:
@@ -15,36 +15,30 @@ jobs:
         net user runneradmin Password1234! /add
         net localgroup administrators runneradmin /add
 
-    - name: Download & Extract Ngrok
+    - name: Download & Start Ngrok
       run: |
+        # Ngrok ကို တိုက်ရိုက်ဒေါင်းလုဒ်လုပ်ခြင်း
         Invoke-WebRequest -Uri "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile "ngrok.zip"
         Expand-Archive -Path "ngrok.zip" -DestinationPath "." -Force
-
-    - name: Start Ngrok TCP Tunnel
-      run: |
-        # Ngrok Auth Token ထည့်ခြင်း
+        
+        # Auth Token ထည့်ခြင်း
         .\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
         
-        # Background မှာ 3389 ကို TCP ဖြင့် ဖွင့်ခြင်း
+        # Background မှာ TCP 3389 ပွင့်စေရန် Run ခြင်း
         Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389"
-        Start-Sleep -Seconds 6
+        Start-Sleep -Seconds 7
 
-    - name: Get RDP Connection Address
+    - name: Show RDP Address in Logs
       run: |
-        # Ngrok API ကနေတစ်ဆင့် TCP Address ကို တိုက်ရိုက်ဆွဲထုတ်ပြခြင်း
-        try {
-            $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
-            $tcp_url = $response.tunnels | Where-Object { $_.proto -eq "tcp" } | Select-Object -ExpandProperty public_url
-            
-            Write-Host "=========================================="
-            Write-Host " RDP ADDRESS : $tcp_url"
-            Write-Host " Username    : runneradmin"
-            Write-Host " Password    : Password1234!"
-            Write-Host "=========================================="
-        } catch {
-            Write-Host "API failed, please check if Ngrok started properly."
-            exit 1
-        }
+        # Ngrok Local API ကနေ TCP Address ကို ဆွဲထုတ်ပြခြင်း (Dashboard ဝင်စရာ မလိုပါ)
+        $response = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
+        $tcp_url = $response.tunnels | Where-Object { $_.proto -eq "tcp" } | Select-Object -ExpandProperty public_url
+        
+        Write-Host "=========================================="
+        Write-Host " 👉 RDP ADDRESS : $tcp_url"
+        Write-Host " 👤 Username    : runneradmin"
+        Write-Host " 🔑 Password    : Password1234!"
+        Write-Host "=========================================="
 
     - name: Keep Alive (6 Hours)
       run: Start-Sleep -Seconds 21600
