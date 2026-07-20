@@ -1,4 +1,4 @@
-name: Windows RDP with Ngrok
+name: Windows RDP
 
 on:
   workflow_dispatch:
@@ -14,23 +14,15 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         net user runneradmin Password1234!
 
-    - name: Install & Start Ngrok
+    - name: Start Tunnel & Get IP
       run: |
-        choco install ngrok
-        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        
-        # Ngrok Version 3 တွင် Foreground Run ပြီး Log ကို ဖိုင်ထဲ တိုက်ရိုက် ရေးခိုင်းခြင်း
-        Start-Process -FilePath "ngrok" -ArgumentList "tcp 3389 --log stdout" -RedirectStandardOutput "ngrok.log"
+        ssh -o StrictHostKeyChecking=no -p 443 -R0:localhost:3389 a.pinggy.io > pinggy.log 2>&1 &
         Start-Sleep -Seconds 8
-
-    - name: Display RDP IP
-      run: |
-        # ngrok.log ဖိုင်ထဲမှ url ကို တိုက်ရိုက် ဆွဲထုတ်ပြခြင်း
-        Get-Content ngrok.log | Select-String "url="
+        Get-Content pinggy.log
         Write-Host "=========================================="
         Write-Host "Username: runneradmin"
         Write-Host "Password: Password1234!"
         Write-Host "=========================================="
 
-    - name: Keep Alive
+    - name: Keep Alive (6 Hours)
       run: Start-Sleep -Seconds 21600
