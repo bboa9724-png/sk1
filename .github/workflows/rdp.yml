@@ -1,0 +1,48 @@
+name: Windows RDP with Ngrok
+
+on:
+  workflow_dispatch: # Manual နှိပ်ပြီး Run ရန်
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    # 1. RDP ကို Windows တွင် ဖွင့်ခြင်း
+    - name: Enable RDP Access
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+
+    # 2. Windows User သတ်မှတ်ခြင်း (Username: runneradmin / Password: Password1234!)
+    - name: Set RDP Password
+      run: |
+        net user runneradmin Password1234!
+
+    # 3. Chocolatey ဖြင့် Ngrok တပ်ဆင်ခြင်း
+    - name: Install Ngrok
+      run: |
+        choco install ngrok
+
+    # 4. Ngrok Authtoken ထည့်သွင်းခြင်း နှင့် Tunnel စတင်ခြင်း
+    - name: Start Ngrok & Display IP
+      run: |
+        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        Start-Process -FilePath "ngrok.exe" -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 6
+        
+        # Ngrok Local API မှတစ်ဆင့် RDP IP နှင့် Port ကို ဆွဲထုတ်၍ Log တွင် ပြသခြင်း
+        $tunnel = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
+        $ip = $tunnel.tunnels[0].public_url
+        
+        Write-Host "==============================================="
+        Write-Host " YOUR RDP IP:PORT IS => $ip"
+        Write-Host " Username: runneradmin"
+        Write-Host " Password: Password1234!"
+        Write-Host "==============================================="
+
+    # 5. စက်မပိတ်သွားစေရန် ၆ နာရီကြာ စောင့်ဆိုင်းပေးထားခြင်း
+    - name: Keep Alive (6 Hours)
+      run: |
+        Start-Sleep -Seconds 21600
