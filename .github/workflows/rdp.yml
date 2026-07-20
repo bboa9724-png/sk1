@@ -1,4 +1,4 @@
-name: Windows RDP
+name: Windows RDP with Cloudflare
 
 on:
   workflow_dispatch:
@@ -8,40 +8,30 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    # 1. RDP Access ဖွင့်ခြင်း
     - name: Enable RDP
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         net user runneradmin Password1234!
 
-    - name: Start Tunnel & Display IP
+    # 2. Cloudflare Tunnel (cloudflared) ကို ဒေါင်းလုဒ်ဆွဲပြီး စတင်ခြင်း
+    - name: Start Cloudflare Tunnel
       run: |
-        Start-Job -ScriptBlock { ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -p 443 -R0:localhost:3389 a.pinggy.io }
-        
-        $retry = 0
-        $ipFound = $false
-        
-        while ($retry -lt 15 -and -not $ipFound) {
-            Start-Sleep -Seconds 3
-            $logs = Receive-Job -Name "Job1" -Keep
-            foreach ($line in $logs) {
-                if ($line -like "*tcp://*") {
-                    Write-Host "=========================================="
-                    Write-Host " YOUR RDP ADDRESS: $line"
-                    Write-Host " Username: runneradmin"
-                    Write-Host " Password: Password1234!"
-                    Write-Host "=========================================="
-                    $ipFound = $true
-                    break
-                }
-            }
-            $retry++
-        }
+        Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared.exe"
+        Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url rdp://localhost:3389" -RedirectStandardError "cloudflared.log" -WindowStyle Hidden
+        Start-Sleep -Seconds 10
 
-        if (-not $ipFound) {
-            Write-Host "All Logs:"
-            Receive-Job -Name "Job1"
-        }
+    # 3. Log ထဲမှ Cloudflare URL ကို ဆွဲထုတ်ပြခြင်း
+    - name: Display RDP URL
+      run: |
+        $url = Select-String -Path "cloudflared.log" -Pattern "https://.*trycloudflare.com" | Select-Object -ExpandProperty Matches | Select-Object -ExpandProperty Value
+        Write-Host "=========================================="
+        Write-Host " YOUR CLOUDFLARE RDP URL: $url"
+        Write-Host " Username: runneradmin"
+        Write-Host " Password: Password1234!"
+        Write-Host "=========================================="
 
+    # 4. စက်မပိတ်သွားစေရန် စောင့်ဆိုင်းပေးခြင်း
     - name: Keep Alive (6 Hours)
       run: Start-Sleep -Seconds 21600
